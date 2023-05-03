@@ -17,7 +17,7 @@ import "./ConsiderationConstants.sol";
 // prettier-ignore
 import {
     CriteriaResolutionErrors
-} from "../interfaces/CriteriaResolutionErrors.sol";
+} from "./CriteriaResolutionErrors.sol";
 
 /**
  * @title CriteriaResolution

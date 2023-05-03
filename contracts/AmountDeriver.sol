@@ -4,7 +4,7 @@ pragma solidity >=0.8.13;
 // prettier-ignore
 import {
     AmountDerivationErrors
-} from "../interfaces/AmountDerivationErrors.sol";
+} from "./AmountDerivationErrors.sol";
 
 import "./ConsiderationConstants.sol";
 

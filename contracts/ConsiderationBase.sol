@@ -2,14 +2,12 @@
 pragma solidity >=0.8.13;
 
 // prettier-ignore
-import {
-    ConduitControllerInterface
-} from "../interfaces/ConduitControllerInterface.sol";
+import { ConduitControllerInterface } from "./ConduitControllerInterface.sol";
 
 // prettier-ignore
 import {
     ConsiderationEventsAndErrors
-} from "../interfaces/ConsiderationEventsAndErrors.sol";
+} from "./ConsiderationEventsAndErrors.sol";
 
 import "./ConsiderationConstants.sol";
 

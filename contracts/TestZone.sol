@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.7;
 
-import { ZoneInterface } from "../interfaces/ZoneInterface.sol";
+import { ZoneInterface } from "./ZoneInterface.sol";
 
 // prettier-ignore
 import {
     AdvancedOrder,
     CriteriaResolver
-} from "../lib/ConsiderationStructs.sol";
+} from "./ConsiderationStructs.sol";
 
 contract TestZone is ZoneInterface {
     function isValidOrder(

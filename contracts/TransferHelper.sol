@@ -3,23 +3,23 @@ pragma solidity >=0.8.7;
 
 import "./TransferHelperStructs.sol";
 
-import { TokenTransferrer } from "../lib/TokenTransferrer.sol";
+import { TokenTransferrer } from "./TokenTransferrer.sol";
 
-import { ConduitInterface } from "../interfaces/ConduitInterface.sol";
+import { ConduitInterface } from "./ConduitInterface.sol";
 
 // prettier-ignore
 import {
     ConduitControllerInterface
-} from "../interfaces/ConduitControllerInterface.sol";
+} from "./ConduitControllerInterface.sol";
 
-import { Conduit } from "../conduit/Conduit.sol";
+import { Conduit } from "./Conduit.sol";
 
-import { ConduitTransfer } from "../conduit/lib/ConduitStructs.sol";
+import { ConduitTransfer } from "./ConduitStructs.sol";
 
 // prettier-ignore
 import {
     TransferHelperInterface
-} from "../interfaces/TransferHelperInterface.sol";
+} from "./TransferHelperInterface.sol";
 
 /**
  * @title TransferHelper

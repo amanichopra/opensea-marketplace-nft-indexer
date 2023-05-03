@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.13;
 
-import { ZoneInterface } from "../interfaces/ZoneInterface.sol";
+import { ZoneInterface } from "./ZoneInterface.sol";
 
 import { OrderType } from "./ConsiderationEnums.sol";
 
@@ -13,7 +13,7 @@ import "./ConsiderationConstants.sol";
 // prettier-ignore
 import {
     ZoneInteractionErrors
-} from "../interfaces/ZoneInteractionErrors.sol";
+} from "./ZoneInteractionErrors.sol";
 
 import { LowLevelHelpers } from "./LowLevelHelpers.sol";
 

@@ -6,9 +6,9 @@ import "./TokenTransferrerConstants.sol";
 // prettier-ignore
 import {
     TokenTransferrerErrors
-} from "../interfaces/TokenTransferrerErrors.sol";
+} from "./TokenTransferrerErrors.sol";
 
-import { ConduitBatch1155Transfer } from "../conduit/lib/ConduitStructs.sol";
+import { ConduitBatch1155Transfer } from "./ConduitStructs.sol";
 
 /**
  * @title TokenTransferrer
