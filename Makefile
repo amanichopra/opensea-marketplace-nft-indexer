@@ -1,12 +1,11 @@
 # GLOBAL VARIABLES
-SLUG_NAME = "seaport-indexer"
-SUBGRAPH_NAME = "seaportindexer"
+SLUG_NAME = "opensea-marketplace-indexer"
 CONTRACT_ADDRESS = "0x00000000006c3852cbef3e08e8df289169ede581" # seaport exchange
 PROTOCOL = "ethereum"
 START_BLOCK = "14946565"
 NETWORK = "mainnet"
-DEPLOY_KEY = "e6f6e8d1260e7c03834c1e5bb25eebad"
-VERSION = "2.0.0"
+DEPLOY_KEY = "faef8816202773582412a6abb40ce767"
+VERSION = "1.0.0"
 
 # Only need to run this once when defining the subgraph
 init:
@@ -39,6 +38,6 @@ deploy:
 	graph auth ${DEPLOY_KEY} --studio \
 
 	cd ${SLUG_NAME}; \
-	graph deploy ${SUBGRAPH_NAME} \
+	graph deploy ${SLUG_NAME} \
 	--version-label ${VERSION} \
 	--studio;
