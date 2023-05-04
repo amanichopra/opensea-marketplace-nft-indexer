@@ -92,12 +92,14 @@ class Fees {
  * - We are not handling bundle sale where NFTs from multiple collections are exchanged since we don't know how to treat the price, eg https://etherscan.io/tx/0xd8d2612fe4995478bc7537eb46786c3d6f0b13b1c50e01e04067eb92ba298d17
  */
 export function handleOrderFulfilled(event: OrderFulfilled): void {
+  // parameters for order fulfilled defined here: https://docs.opensea.io/reference/seaport-events-and-errors
   const offerer = event.params.offerer;
   const recipient = event.params.recipient;
   const offer = event.params.offer;
   const consideration = event.params.consideration;
 
-  const saleResult = extractSale(
+  // use the above parameters to figure out what NFT's were involved in the transfer and who the buyer and sellers are
+  const saleResult = getTransferDetails(
     offerer,
     recipient,
     offer,
@@ -480,21 +482,31 @@ function getNftStandard(collectionID: string): string {
 // - What fees are allocated? (fees)
 //
 // This can be tricky because it is either a bid offer or an ask offer :(
-function extractSale(
+function getTransferDetails(
   offerer: Address,
   recipient: Address,
   offer: Array<OrderFulfilledOfferStruct>,
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): Sale | null {
-  // if non weth erc20, ignore
+  if (offer.length == 0) { // offer empty
+    return null;
+  }
+
+  if (consideration.length == 0) { // consideration empty
+    return null;
+  }
+
+  // ensure offer only contains weth token
   for (let i = 0; i < offer.length; i++) {
     if (
-      offer[i].itemType == SeaportItemType.ERC20 &&
+      offer[i].itemType != SeaportItemType.ERC20 &&
       offer[i].token != WETH_ADDRESS
     ) {
       return null;
     }
   }
+
+  // ensure consideration only contains weth token
   for (let i = 0; i < consideration.length; i++) {
     if (
       consideration[i].itemType == SeaportItemType.ERC20 &&
@@ -504,20 +516,10 @@ function extractSale(
     }
   }
 
-  // offer empty or consideration empty is odd but it happens
-  // when a transaction emits more than 1 OrderFulfilled events
-  // these events are usually relevant to each other in a way
-  // though haven't figured out how to treat them correctly to match etherscan result :(
-  if (offer.length == 0) { // offer empty
-    return null;
-  }
-  if (consideration.length == 0) { // consideration empty
-    return null;
-  }
-
-  // if money is in `offer` then NFTs are must in `consideration`
-  const moneyInOffer = offer.length == 1 && isMoney(offer[0].itemType);
-  if (moneyInOffer) {
+  // as this (https://docs.opensea.io/reference/seaport-overview) page explains,
+  // u can only buy an NFT with ERC20 or NATIVE ETH tokens. If the offer contains one 
+  // of these tokens, then the offerrer is a buyer. 
+  if (offer.length == 1 && isMoney(offer[0].itemType)) {
     const considerationNFTsResult = tryGetNFTsFromConsideration(consideration);
     if (!considerationNFTsResult) { // nft not found in consideration
       return null;
@@ -602,6 +604,7 @@ function tryGetNFTsFromOffer(
   return new NFTs(collection, standard, tokenIds, amounts);
 }
 
+// this function extracts the NFTs from the consideration
 function tryGetNFTsFromConsideration(
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): NFTs | null {

@@ -5,7 +5,7 @@ PROTOCOL = "ethereum"
 START_BLOCK = "14946565"
 NETWORK = "mainnet"
 DEPLOY_KEY = "faef8816202773582412a6abb40ce767"
-VERSION = "2.2.0"
+VERSION = "2.7.0"
 
 # Only need to run this once when defining the subgraph
 init:

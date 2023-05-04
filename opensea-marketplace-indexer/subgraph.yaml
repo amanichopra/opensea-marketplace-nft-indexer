@@ -25,4 +25,4 @@ dataSources:
       eventHandlers:
         - event: OrderFulfilled(bytes32,indexed address,indexed address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])
           handler: handleOrderFulfilled
-      file: ./src/mapping.ts
+      file: ./src/handler.ts
