@@ -1,9 +1,4 @@
-import { 
-  Address, 
-  BigDecimal, 
-  BigInt, 
-  ethereum 
-} from "@graphprotocol/graph-ts";
+import { Address, BigDecimal, BigInt, ethereum } from "@graphprotocol/graph-ts";
 
 export namespace MethodSignatures {
   export const FULFILL_BASIC_ORDER = "0XFB0F3EE1"
@@ -247,5 +242,3 @@ export function tradeStrategy(event:ethereum.Event):string {
 
   return strategy;
 }
-
-
