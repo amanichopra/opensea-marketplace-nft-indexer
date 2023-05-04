@@ -5,15 +5,15 @@ PROTOCOL = "ethereum"
 START_BLOCK = "14946565"
 NETWORK = "mainnet"
 DEPLOY_KEY = "faef8816202773582412a6abb40ce767"
-VERSION = "1.0.0"
+VERSION = "2.1.0"
 
 # Only need to run this once when defining the subgraph
 init:
 	graph init ${SLUG_NAME} \
-	--contract-name SeaportExchange \
+	--contract-name Seaport \
 	--index-events \
 	--studio \
-	--abi ./abis/SeaportExchange.json \
+	--abi ./abis/Seaport.json \
 	--from-contract ${CONTRACT_ADDRESS} \
 	--protocol ${PROTOCOL} \
 	--start-block ${START_BLOCK} \
