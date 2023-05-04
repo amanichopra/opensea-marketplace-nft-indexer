@@ -516,19 +516,6 @@ export class Trade extends Entity {
     this.set("blockNumber", Value.fromBigInt(value));
   }
 
-  get isBundle(): boolean {
-    let value = this.get("isBundle");
-    if (!value || value.kind == ValueKind.NULL) {
-      return false;
-    } else {
-      return value.toBoolean();
-    }
-  }
-
-  set isBundle(value: boolean) {
-    this.set("isBundle", Value.fromBoolean(value));
-  }
-
   get collection(): string {
     let value = this.get("collection");
     if (!value || value.kind == ValueKind.NULL) {

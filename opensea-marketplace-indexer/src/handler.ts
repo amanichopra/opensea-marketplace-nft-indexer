@@ -30,11 +30,9 @@ import {
   MANTISSA_FACTOR,
   max,
   min,
-  NftStandard,
-  SeaportItemType,
+  NFTStandards,
   SECONDS_PER_DAY,
-  WETH_ADDRESS,
-} from "./helper";
+} from "./utils";
 import { NFTMetadata } from "../generated/Seaport/NFTMetadata";
 import { ERC165 } from "../generated/Seaport/ERC165";
 import { NetworkConfigs } from "../configurations/configure";
@@ -69,28 +67,9 @@ class Fees {
   ) {}
 }
 
-/**
- * OrderFulfilled is good because it contains literally all neede data build up a `Trade` entity.
- * OrderFulfilled is also bad because it is very generic, requiring a lot of hidden knowledge to decipher its actual meaning.
- *
- * Hidden knowledge:
- * - `offer` and `consideration` are key to determine a NFT sale details.
- * - usually a pair of (offer, consideration) contains 4 items: the NFT, the sale volume, the protocol fee, and the royalty fee.
- * - both protocol fee and royalty fee exist in `consideration`
- * - protocol fee goes to a few addresses owned by opensea, see method `isOpenSeaFeeAccount`
- * - royalty fee goes to beneficiary account, the NFT collector admin can specify this
- * - the NFT and the sale volume exists in either `offer` or `consideration`
- * - if `offer` = [NFT], `consideration` = [sale volume, protocol fee, royalty fee], then the OrderFulfilled represents a ask, offerer = seller
- * - if `offer` = [sale volume], `consideration` = [NFT, protocol fee, royalty fee], then the OrderFulfilled represents a bid, offerer = buyer
- *
- * Note that the situation we describe above are usual cases. There are know corner cases that we need to handle:
- * - `offer` empty
- * - `consideration` empty, eg https://etherscan.io/tx/0xf72b9782adb5620fa20b8f322d231f8724728fd5411cabc870cbc24c6ca89527
- * - cannot find protocol fee from `consideration`, eg https://etherscan.io/tx/0xaaa0a8fd58c62952dbd198579826a1fefb48f34e8c97b7319e365e74eaaa24ec
- *
- * Know limitations:
- * - We are not handling bundle sale where NFTs from multiple collections are exchanged since we don't know how to treat the price, eg https://etherscan.io/tx/0xd8d2612fe4995478bc7537eb46786c3d6f0b13b1c50e01e04067eb92ba298d17
- */
+// Offers and Consideration have information about NFTs, the price, the fees that go to OpenSea, and the royalty fees
+// if the offer contains the NFT, then the offerer is the seller. As a result, the price, opensea fees, and royalty fee will be in consideration.
+// if consideration contains the NFT, the the recipient is the seller. As a result, the price, opensea fees, and royalty fee will be in offer.
 export function handleOrderFulfilled(event: OrderFulfilled): void {
   // parameters for order fulfilled defined here: https://docs.opensea.io/reference/seaport-events-and-errors
   const offerer = event.params.offerer;
@@ -99,17 +78,11 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
   const consideration = event.params.consideration;
 
   // use the above parameters to figure out what NFT's were involved in the transfer and who the buyer and sellers are
-  const saleResult = getTransferDetails(
-    offerer,
-    recipient,
-    offer,
-    consideration
-  );
+  const saleResult = getTransferDetails(offerer, recipient, offer, consideration);
   if (!saleResult) {
     return;
   }
 
-  const isBundle = saleResult.nfts.tokenIds.length > 1;
   const collectionAddr = saleResult.nfts.collection.toHexString();
   const collection = getOrCreateCollection(collectionAddr);
   const buyer = saleResult.buyer.toHexString();
@@ -130,24 +103,16 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
   //
   const nNewTrade = saleResult.nfts.tokenIds.length;
   for (let i = 0; i < nNewTrade; i++) {
-    const tradeID = isBundle
-      ? event.transaction.hash
-          .toHexString()
-          .concat("-")
-          .concat(event.logIndex.toString())
-          .concat("-")
-          .concat(i.toString())
-      : event.transaction.hash
-          .toHexString()
-          .concat("-")
-          .concat(event.logIndex.toString());
+    const tradeID = event.transaction.hash
+    .toHexString()
+    .concat("-")
+    .concat(event.logIndex.toString());
 
     const trade = new Trade(tradeID);
     trade.transactionHash = event.transaction.hash.toHexString();
     trade.logIndex = event.logIndex.toI32();
     trade.timestamp = event.block.timestamp;
     trade.blockNumber = event.block.number;
-    trade.isBundle = isBundle;
     trade.collection = collectionAddr;
     trade.tokenId = saleResult.nfts.tokenIds[i];
     trade.priceETH = priceETH;
@@ -353,6 +318,7 @@ function getOrCreateCollection(collectionID: string): Collection {
     if (!totalSupplyResult.reverted) {
       collection.totalSupply = totalSupplyResult.value;
     }
+    
     collection.royaltyFee = BIGDECIMAL_ZERO;
     collection.cumulativeTradeVolumeETH = BIGDECIMAL_ZERO;
     collection.marketplaceRevenueETH = BIGDECIMAL_ZERO;
@@ -457,7 +423,7 @@ function getNftStandard(collectionID: string): string {
     log.warning("[getNftStandard] isERC721 reverted on {}", [collectionID]);
   } else {
     if (isERC721Result.value) {
-      return NftStandard.ERC721;
+      return NFTStandards.ERC721;
     }
   }
 
@@ -468,20 +434,16 @@ function getNftStandard(collectionID: string): string {
     log.warning("[getNftStandard] isERC1155 reverted on {}", [collectionID]);
   } else {
     if (isERC1155Result.value) {
-      return NftStandard.ERC1155;
+      return NFTStandards.ERC1155;
     }
   }
 
-  return NftStandard.UNKNOWN;
+  return NFTStandards.UNKNOWN;
 }
 
-// Use best effort to figure out the following data that construct a `Sale`:
-// - Who is the buyer and seller?
-// - What's the sale volume? (money)
-// - What NFTs are involved? (nfts)
-// - What fees are allocated? (fees)
-//
-// This can be tricky because it is either a bid offer or an ask offer :(
+// There are two main cases in this function: 
+// 1) offerer is buyer since offer has money and consideration has NFTs
+// 2) offerer is seller since offer has NFTs and consideration has money
 function getTransferDetails(
   offerer: Address,
   recipient: Address,
@@ -496,49 +458,33 @@ function getTransferDetails(
     return null;
   }
 
-  // ensure offer only contains weth token
-  for (let i = 0; i < offer.length; i++) {
-    if (
-      offer[i].itemType != SeaportItemType.ERC20 &&
-      offer[i].token != WETH_ADDRESS
-    ) {
-      return null;
-    }
-  }
-
-  // ensure consideration only contains weth token
-  for (let i = 0; i < consideration.length; i++) {
-    if (
-      consideration[i].itemType == SeaportItemType.ERC20 &&
-      consideration[i].token != WETH_ADDRESS
-    ) {
-      return null;
-    }
-  }
-
-  // as this (https://docs.opensea.io/reference/seaport-overview) page explains,
-  // u can only buy an NFT with ERC20 or NATIVE ETH tokens. If the offer contains one 
-  // of these tokens, then the offerrer is a buyer. 
-  if (offer.length == 1 && isMoney(offer[0].itemType)) {
-    const considerationNFTsResult = tryGetNFTsFromConsideration(consideration);
+  // Since we need to figure out who the buyer is and who the offerer is, let's
+  // make a simplification and assume that you can only buy an NFT with ERC20 or NATIVE ETH
+  // token, which is considered money. In reality, you can trade NFTs too, but that will make it tricky to know who the buyer and seller
+  // is. If the offer contains money, then the offerrer is a buyer.   
+  if (offer.length == 1 && isMoney(offer[0].itemType)) { // if offer only contains money, then NFTs are in consideration
+    const considerationNFTsResult = extractNFTsFromConsideration(consideration);
     if (!considerationNFTsResult) { // nft not found in consideration
       return null;
     }
+
+    let money = new Money(offer[0].amount); 
+    let fees = extractOpenSeaRoyaltyFees(recipient, consideration);
+    // sale in which the offerer is buying from the recipient
     return new Sale(
       offerer,
       recipient,
       considerationNFTsResult,
-      getMoneyFromOffer(offer[0]),
-      getFees(recipient, consideration)
+      money,
+      fees
     );
-  } else {
-    // otherwise, money is in `consideration` and NFTs are in `offer`
-    const considerationMoneyResult =
-      tryGetMoneyFromConsideration(consideration);
-    if (!considerationMoneyResult) {
+  
+  } else { // otherwise money must be in consideration, so NFTs are in offer
+    const considerationMoneyResult = extractMoneyFromConsideration(consideration);
+    if (!considerationMoneyResult) { // if no money in consideration
       return null;
     }
-    const offerNFTsResult = tryGetNFTsFromOffer(offer);
+    const offerNFTsResult = extractNFTsFromOffer(offer);
     if (!offerNFTsResult) {
       return null;
     }
@@ -547,149 +493,117 @@ function getTransferDetails(
       offerer,
       offerNFTsResult,
       considerationMoneyResult,
-      getFees(offerer, consideration)
+      extractOpenSeaRoyaltyFees(offerer, consideration)
     );
   }
 }
 
-function getMoneyFromOffer(o: OrderFulfilledOfferStruct): Money {
-  return new Money(o.amount);
-}
-
-// Add up all money amounts in consideration in order to get the trade volume
-function tryGetMoneyFromConsideration(
+// Sum all money amounts in consideration to get total money involved in transfer
+function extractMoneyFromConsideration(
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): Money | null {
-  let hasMoney = false;
   let amount = BIGINT_ZERO;
   for (let i = 0; i < consideration.length; i++) {
     if (isMoney(consideration[i].itemType)) {
-      hasMoney = true;
       amount = amount.plus(consideration[i].amount);
     }
   }
-  if (!hasMoney) {
+  if (amount == BIGINT_ZERO) {
     return null;
   }
   return new Money(amount);
 }
 
-function tryGetNFTsFromOffer(
+// this function extracts NFTs from the offer
+function extractNFTsFromOffer(
   offer: Array<OrderFulfilledOfferStruct>
 ): NFTs | null {
-  if (offer.some((o) => !isNFT(o.itemType))) {
+  if (offer.filter((o) => isNFT(o.itemType)).length == 0) { // if none of the items in offer are NFTs
     return null;
   }
-  const collection = offer[0].token;
-  const tpe = offer[0].itemType;
+
+  // Assume the first item of offer is token. Sonsideration can also have same token as another item in a different amount, 
+  // but we aren't handling the case where the consideration can have multiple tokens.
+  const token = offer[0].token;
+  const tokenType = offer[0].itemType;
   const tokenIds: Array<BigInt> = [];
   const amounts: Array<BigInt> = [];
+
   for (let i = 0; i < offer.length; i++) {
-    const o = offer[i];
-    if (o.token != collection) {
-      log.warning(
-        "[tryGetNFTsFromOffer] we're not handling collection > 1 case",
-        []
-      );
+    const item = offer[i];
+    if (item.token != token) {
       return null;
     }
-    tokenIds.push(o.identifier);
-    amounts.push(o.amount);
+    tokenIds.push(item.identifier);
+    amounts.push(item.amount);
   }
-  const standard = isERC721(tpe)
-    ? NftStandard.ERC721
-    : isERC1155(tpe)
-    ? NftStandard.ERC1155
-    : NftStandard.UNKNOWN;
-  return new NFTs(collection, standard, tokenIds, amounts);
+
+  let standard = NFTStandards.UNKNOWN;
+  if (isERC721(tokenType)) {
+    standard = NFTStandards.ERC721;
+  } if (isERC1155(tokenType)) {
+    standard = NFTStandards.ERC1155;
+  }
+  return new NFTs(token, standard, tokenIds, amounts);
 }
 
 // this function extracts the NFTs from the consideration
-function tryGetNFTsFromConsideration(
+function extractNFTsFromConsideration(
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): NFTs | null {
   const nftItems = consideration.filter((c) => isNFT(c.itemType));
   if (nftItems.length == 0) {
     return null;
   }
-  const collection = nftItems[0].token;
-  const tpe = nftItems[0].itemType;
+  // Assume the first item of consideration is token. Sonsideration can also have same token as another item in a different amount, 
+  // but we aren't handling the case where the consideration can have multiple tokens.
+  const token = nftItems[0].token; 
+  const tokenType = nftItems[0].itemType;
   const tokenIds: Array<BigInt> = [];
   const amounts: Array<BigInt> = [];
+
   for (let i = 0; i < nftItems.length; i++) {
     const item = nftItems[i];
-    if (item.token != collection) {
-      log.warning(
-        "[tryGetNFTsFromConsideration] we're not handling collection > 1 case",
-        []
-      );
+    if (item.token != token) { 
       return null;
     }
     tokenIds.push(item.identifier);
     amounts.push(item.amount);
   }
-  const standard = isERC721(tpe)
-    ? NftStandard.ERC721
-    : isERC1155(tpe)
-    ? NftStandard.ERC1155
-    : NftStandard.UNKNOWN;
-  return new NFTs(collection, standard, tokenIds, amounts);
+  let standard = NFTStandards.UNKNOWN;
+  if (isERC721(tokenType)) {
+    standard = NFTStandards.ERC721;
+  } if (isERC1155(tokenType)) {
+    standard = NFTStandards.ERC1155;
+  } 
+ 
+  return new NFTs(token, standard, tokenIds, amounts);
 }
 
-// `consideration` could contain: royalty transfer, opeasea fee, and sale transfer itself
-// known edge cases are:
-// - opensea fee not found
-function getFees(
-  excludedRecipient: Address,
+function extractOpenSeaRoyaltyFees(
+  excludedRecipient: Address, // need this because royalty transfer is to the NFT creator
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): Fees {
-  const protocolFeeItems = consideration.filter((c) =>
-    isOpenSeaFeeAccount(c.recipient)
-  );
-  let protocolRevenue = BIGINT_ZERO;
-  if (protocolFeeItems.length == 0) { // protocol fee not found in consideration
-  } else {
-    protocolRevenue = protocolFeeItems[0].amount;
-  }
+  const openSeaFeeItems = consideration.filter((c) => isOpenSeaFeeAccount(c.recipient));
+  
+  // openSea fee is 0 if we can't find it in consideration
+  let openSeaFees = BIGINT_ZERO;
+  if (openSeaFeeItems.length != 0) { // protocol fee not found in consideration
+    openSeaFees = openSeaFeeItems[0].amount;
+  } 
 
-  const royaltyFeeItems: Array<OrderFulfilledConsiderationStruct> = [];
+  const royaltyFeeItems: Array<OrderFulfilledConsiderationStruct> = []; // can't use filter method above since excluded recipient isn't an attribute of a consideration
   for (let i = 0; i < consideration.length; i++) {
-    const c = consideration[i];
-    if (!isOpenSeaFeeAccount(c.recipient) && c.recipient != excludedRecipient) {
-      royaltyFeeItems.push(c);
+    if (!isOpenSeaFeeAccount(consideration[i].recipient) && consideration[i].recipient != excludedRecipient) {
+      royaltyFeeItems.push(consideration[i]);
     }
-  }
-  const royaltyRevenue =
-    royaltyFeeItems.length > 0 ? royaltyFeeItems[0].amount : BIGINT_ZERO;
+  }  
 
-  return new Fees(protocolRevenue, royaltyRevenue);
-}
+  // royalty is 0 if we can't find it in consideration
+  let royalty = BIGINT_ZERO;
+  if (royaltyFeeItems.length != 0) {
+    royalty = royaltyFeeItems[0].amount;
+  } 
 
-//
-// Useful utilities for finding unhandled edge cases
-//
-
-function _DEBUG_offerToString(item: OrderFulfilledOfferStruct): string {
-  return `Offer(type=${
-    item.itemType
-  }, token=${item.token.toHexString()}, id=${item.identifier.toString()}, amount=${item.amount.toString()})`;
-}
-
-function _DEBUG_considerationToString(
-  item: OrderFulfilledConsiderationStruct
-): string {
-  return `Consideration(type=${
-    item.itemType
-  }, token=${item.token.toHexString()}, id=${item.identifier.toString()}, amount=${item.amount.toString()}, recipient=${item.recipient.toHexString()})`;
-}
-
-function _DEBUG_join(ss: Array<string>): string {
-  let s = "";
-  for (let i = 0; i < ss.length; i++) {
-    if (i > 0) {
-      s += " ";
-    }
-    s += ss[i];
-  }
-  return s;
+  return new Fees(openSeaFees, royalty);
 }

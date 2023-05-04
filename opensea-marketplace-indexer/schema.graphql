@@ -197,9 +197,6 @@ type Trade @entity {
   " Block number where the trade is executed. "
   blockNumber: BigInt!
 
-  " Whether the trade is in a bundle. "
-  isBundle: Boolean!
-
   " Collection involved "
   collection: Collection!
 
