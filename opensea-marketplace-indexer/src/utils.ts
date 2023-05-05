@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, ethereum } from "@graphprotocol/graph-ts";
+import { Address, BigDecimal, BigInt, ethereum, log } from "@graphprotocol/graph-ts";
 
 // method signatures are instantitiated here on etherscan: https://etherscan.io/address/0x00000000006c3852cbef3e08e8df289169ede581#writeContract
 export namespace MethodSignatures {
@@ -152,7 +152,7 @@ export function orderFulfillmentMethod(event:ethereum.Event):string | null {
   }
 
   if(methodSignature == MethodSignatures.MATCH_ADVANCED_ORDERS) {
-    fulfillmentType === OrderFulfillmentMethods.MATCH_ADVANCED_ORDERS
+    fulfillmentType = OrderFulfillmentMethods.MATCH_ADVANCED_ORDERS
   }
 
   return fulfillmentType;
