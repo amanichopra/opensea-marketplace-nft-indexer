@@ -37,6 +37,8 @@ import { NFTMetadata } from "../generated/Seaport/NFTMetadata";
 import { ERC165 } from "../generated/Seaport/ERC165";
 import { NetworkConfigs } from "../configurations/configure";
 
+// These are objects that serve as dataclasses. They are similar to the objects created by codegen, 
+// but they are not defined as entities in the graphql schema
 class Sale {
   constructor(
     public readonly buyer: Address,
@@ -49,7 +51,7 @@ class Sale {
 
 class NFTs {
   constructor(
-    public readonly collection: Address,
+    public readonly tokenAddress: Address,
     public readonly standard: string,
     public readonly tokenIds: Array<BigInt>,
     public readonly amounts: Array<BigInt>
@@ -83,8 +85,8 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
     return;
   }
 
-  const collectionAddr = saleResult.nfts.collection.toHexString();
-  const collection = getOrCreateCollection(collectionAddr);
+  const tokenAddress = saleResult.nfts.tokenAddress.toHexString(); 
+  const collection = getCollection(tokenAddress);
   const buyer = saleResult.buyer.toHexString();
   const seller = saleResult.seller.toHexString();
   const royaltyFee = saleResult.fees.creatorRevenue
@@ -113,7 +115,7 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
     trade.logIndex = event.logIndex.toI32();
     trade.timestamp = event.block.timestamp;
     trade.blockNumber = event.block.number;
-    trade.collection = collectionAddr;
+    trade.collection = tokenAddress;
     trade.tokenId = saleResult.nfts.tokenIds[i];
     trade.priceETH = priceETH;
     trade.amount = saleResult.nfts.amounts[i];
@@ -179,7 +181,7 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
   //
   // update marketplace
   //
-  const marketplace = getOrCreateMarketplace(
+  const marketplace = getMarketplace(
     NetworkConfigs.getMarketplaceAddress()
   );
   marketplace.tradeCount += 1;
@@ -214,7 +216,7 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
   let newDailyTradedItem = 0;
   for (let i = 0; i < nNewTrade; i++) {
     const dailyTradedItemID = "DAILY_TRADED_ITEM-"
-      .concat(collectionAddr)
+      .concat(tokenAddress)
       .concat("-")
       .concat(saleResult.nfts.tokenIds[i].toString())
       .concat("-")
@@ -230,7 +232,7 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
   // take collection snapshot
   //
   const collectionSnapshot = getOrCreateCollectionDailySnapshot(
-    collectionAddr,
+    tokenAddress,
     event.block.timestamp
   );
   collectionSnapshot.blockNumber = event.block.number;
@@ -287,7 +289,7 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
     marketplaceSnapshot.dailyActiveTraders += 1;
   }
   const dailyTradedCollectionID = "DAILY_TRADED_COLLECTION-"
-    .concat(collectionAddr)
+    .concat(tokenAddress)
     .concat("-")
     .concat((event.block.timestamp.toI32() / SECONDS_PER_DAY).toString());
   let dailyTradedCollection = _Item.load(dailyTradedCollectionID);
@@ -300,25 +302,32 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
   marketplaceSnapshot.save();
 }
 
-function getOrCreateCollection(collectionID: string): Collection {
-  let collection = Collection.load(collectionID);
-  if (!collection) {
-    collection = new Collection(collectionID);
-    collection.nftStandard = getNftStandard(collectionID);
-    const contract = NFTMetadata.bind(Address.fromString(collectionID));
-    const nameResult = contract.try_name();
-    if (!nameResult.reverted) {
-      collection.name = nameResult.value;
+function getCollection(tokenAddress: string): Collection {
+  let collection = Collection.load(tokenAddress);
+
+  // if the collection hasn't been saved before, we will need to instantiate it and save it for the first time in the event handler.
+  if (!collection) { 
+    collection = new Collection(tokenAddress);
+    collection.nftStandard = getNftStandard(tokenAddress);
+    const contract = NFTMetadata.bind(Address.fromString(tokenAddress));
+    
+    // We can conveniently try getting the name, symbol, and total supply of an NFT using the generated code. 
+    // This probably uses the attributes available in the NFTMetadata ABI.
+    const name = contract.try_name(); 
+    if (!name.reverted) { // if the name is not present, it will show as null
+      collection.name = name.value;
     }
-    const symbolResult = contract.try_symbol();
-    if (!symbolResult.reverted) {
-      collection.symbol = symbolResult.value;
+    const symbol = contract.try_symbol();
+    if (!symbol.reverted) { // if the symbol is not present, it will show as null
+      collection.symbol = symbol.value;
     }
-    const totalSupplyResult = contract.try_totalSupply();
-    if (!totalSupplyResult.reverted) {
-      collection.totalSupply = totalSupplyResult.value;
+    const totalSupply = contract.try_totalSupply();
+    if (!totalSupply.reverted) { // if the supply is not present, it will show as null
+      collection.totalSupply = totalSupply.value;
     }
     
+    // Not exactly sure why we need to save the collection to the indexer's database here if we are saving
+    // it again in the event handler. 
     collection.royaltyFee = BIGDECIMAL_ZERO;
     collection.cumulativeTradeVolumeETH = BIGDECIMAL_ZERO;
     collection.marketplaceRevenueETH = BIGDECIMAL_ZERO;
@@ -329,7 +338,7 @@ function getOrCreateCollection(collectionID: string): Collection {
     collection.sellerCount = 0;
     collection.save();
 
-    const marketplace = getOrCreateMarketplace(
+    const marketplace = getMarketplace(
       NetworkConfigs.getMarketplaceAddress()
     );
     marketplace.collectionCount += 1;
@@ -338,7 +347,7 @@ function getOrCreateCollection(collectionID: string): Collection {
   return collection;
 }
 
-function getOrCreateMarketplace(marketplaceID: string): Marketplace {
+function getMarketplace(marketplaceID: string): Marketplace {
   let marketplace = Marketplace.load(marketplaceID);
   if (!marketplace) {
     marketplace = new Marketplace(marketplaceID);
@@ -524,14 +533,14 @@ function extractNFTsFromOffer(
 
   // Assume the first item of offer is token. Sonsideration can also have same token as another item in a different amount, 
   // but we aren't handling the case where the consideration can have multiple tokens.
-  const token = offer[0].token;
+  const token_address = offer[0].token;
   const tokenType = offer[0].itemType;
   const tokenIds: Array<BigInt> = [];
   const amounts: Array<BigInt> = [];
 
   for (let i = 0; i < offer.length; i++) {
     const item = offer[i];
-    if (item.token != token) {
+    if (item.token != token_address) {
       return null;
     }
     tokenIds.push(item.identifier);
@@ -544,7 +553,7 @@ function extractNFTsFromOffer(
   } if (isERC1155(tokenType)) {
     standard = NFTStandards.ERC1155;
   }
-  return new NFTs(token, standard, tokenIds, amounts);
+  return new NFTs(token_address, standard, tokenIds, amounts);
 }
 
 // this function extracts the NFTs from the consideration
@@ -557,14 +566,14 @@ function extractNFTsFromConsideration(
   }
   // Assume the first item of consideration is token. Sonsideration can also have same token as another item in a different amount, 
   // but we aren't handling the case where the consideration can have multiple tokens.
-  const token = nftItems[0].token; 
+  const token_address = nftItems[0].token; 
   const tokenType = nftItems[0].itemType;
   const tokenIds: Array<BigInt> = [];
   const amounts: Array<BigInt> = [];
 
   for (let i = 0; i < nftItems.length; i++) {
     const item = nftItems[i];
-    if (item.token != token) { 
+    if (item.token != token_address) { 
       return null;
     }
     tokenIds.push(item.identifier);
@@ -577,7 +586,7 @@ function extractNFTsFromConsideration(
     standard = NFTStandards.ERC1155;
   } 
  
-  return new NFTs(token, standard, tokenIds, amounts);
+  return new NFTs(token_address, standard, tokenIds, amounts);
 }
 
 function extractOpenSeaRoyaltyFees(
