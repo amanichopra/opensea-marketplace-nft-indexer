@@ -3,28 +3,87 @@ import { describe, test, newMockEvent, clearStore, assert, beforeAll, beforeEach
 
 import { handleOrderFulfilled, getCollection, getMarketplace, getOrCreateCollectionDailySnapshot, getOrCreateMarketplaceDailySnapshot, getNftStandard, getTransferDetails, extractMoneyFromConsideration, extractNFTsFromOffer, extractNFTsFromConsideration, extractOpenSeaRoyaltyFees, Money, NFTs, Fees, Sale } from "../src/handler"
 import { OrderFulfilledConsiderationStruct, OrderFulfilledOfferStruct } from "../generated/Seaport/Seaport";
-import { BIGDECIMAL_MAX, BIGDECIMAL_ZERO, BIGINT_ZERO, NFTStandards, OPENSEA_FEES_ACCOUNT, SECONDS_PER_DAY, SaleStrategies, SeaportItemType } from "../src/utils";
+import { BIGDECIMAL_MAX, BIGDECIMAL_ZERO, BIGINT_ZERO, ERC721_INTERFACE_IDENTIFIER, NFTStandards, OPENSEA_FEES_ACCOUNT, SECONDS_PER_DAY, SaleStrategies, SeaportItemType } from "../src/utils";
 
 import { store } from "@graphprotocol/graph-ts"
-import { CollectionDailySnapshot, Marketplace, MarketplaceDailySnapshot } from "../generated/schema";
+import { Collection, CollectionDailySnapshot, Marketplace, MarketplaceDailySnapshot } from "../generated/schema";
 import { NetworkConfigs } from "../configurations/configure";
+import { ERC1155_INTERFACE_IDENTIFIER } from "../src/utils";
+import { NFTMetadata } from "../generated/Seaport/NFTMetadata";
 
 const DUMMY_ADDRESS = "0x7Be8076f4EA4A4AD08075C2508e481d6C946D12b"
 const DUMMY_ADDRESS2 = "0x388c818ca8b9251b393131c08a736a67ccb19297"
 
-// describe("handleOrdersMatched()", () => {
-//     describe("When receipt is present", () => {
-//         test("updates the entity", () => {
+describe("getCollection()", () => {
+    describe("when collection does not exist", () => {
+        test("it returns ", () => {
+            const tokenAddress = DUMMY_ADDRESS
+            const collection = store.get("Collection", tokenAddress)
+            assert.assertNull(collection)
 
-//         })
-//     })
+            createMockedFunction(Address.fromString(tokenAddress), "supportsInterface", "supportsInterface(bytes4):(bool)")
+                .withArgs([ethereum.Value.fromFixedBytes(Bytes.fromHexString(ERC721_INTERFACE_IDENTIFIER))])
+                .returns([ethereum.Value.fromBoolean(false)])
 
-//     describe("When receipt is not present", () => {
-//         test("it creates a new entity", () => {
+            createMockedFunction(Address.fromString(tokenAddress), "supportsInterface", "supportsInterface(bytes4):(bool)")
+                .withArgs([ethereum.Value.fromFixedBytes(Bytes.fromHexString(ERC1155_INTERFACE_IDENTIFIER))])
+                .returns([ethereum.Value.fromBoolean(false)])
 
-//         })
-//     })
-// })
+            createMockedFunction(Address.fromString(tokenAddress), "name", "name():(string)")
+                .withArgs([])
+                .returns([ethereum.Value.fromString("name")])
+
+            createMockedFunction(Address.fromString(tokenAddress), "symbol", "symbol():(string)")
+                .withArgs([])
+                .returns([ethereum.Value.fromString("symbol")])
+
+            createMockedFunction(Address.fromString(tokenAddress), "totalSupply", "totalSupply():(uint256)")
+                .withArgs([])
+                .returns([ethereum.Value.fromI32(10)])
+
+            const retVal = getCollection(tokenAddress)
+            const expected = store.get("Collection", tokenAddress)
+            assert.assertTrue(expected!.get("id")!.toString() == retVal.id)
+            assert.assertTrue(expected!.get("name")!.toString() == retVal.name)
+            assert.assertTrue(expected!.get("royaltyFee")!.toBigDecimal() == retVal.royaltyFee)
+            assert.assertTrue(expected!.get("tradeCount")!.toI32() == retVal.tradeCount)
+        })
+    })
+
+    describe("when collection does exist", () => {
+        test("it loads existing collection", () => {
+            const tokenAddress = DUMMY_ADDRESS
+
+            createMockedFunction(Address.fromString(tokenAddress), "supportsInterface", "supportsInterface(bytes4):(bool)")
+                .withArgs([ethereum.Value.fromFixedBytes(Bytes.fromHexString(ERC721_INTERFACE_IDENTIFIER))])
+                .returns([ethereum.Value.fromBoolean(false)])
+
+            createMockedFunction(Address.fromString(tokenAddress), "supportsInterface", "supportsInterface(bytes4):(bool)")
+                .withArgs([ethereum.Value.fromFixedBytes(Bytes.fromHexString(ERC1155_INTERFACE_IDENTIFIER))])
+                .returns([ethereum.Value.fromBoolean(false)])
+
+            const existingCollection = new Collection(tokenAddress);
+            existingCollection.nftStandard = getNftStandard(tokenAddress);
+            existingCollection.royaltyFee = BigDecimal.fromString("1.5");
+            existingCollection.cumulativeTradeVolumeETH = BIGDECIMAL_ZERO;
+            existingCollection.marketplaceRevenueETH = BIGDECIMAL_ZERO;
+            existingCollection.creatorRevenueETH = BIGDECIMAL_ZERO;
+            existingCollection.totalRevenueETH = BIGDECIMAL_ZERO;
+            existingCollection.tradeCount = 1;
+            existingCollection.buyerCount = 0;
+            existingCollection.sellerCount = 0;
+            store.set("Collection", tokenAddress, existingCollection)
+            
+            const collection = store.get("Collection", tokenAddress)
+            assert.assertNotNull(collection)
+
+            const retVal = getCollection(tokenAddress)
+            assert.assertTrue(retVal.id == existingCollection.id)
+            assert.assertTrue(retVal.royaltyFee == existingCollection.royaltyFee)
+            assert.assertTrue(retVal.tradeCount == existingCollection.tradeCount)
+        })
+    })
+})
 
 describe("getMarketplace()", () => {
     describe("When marketplace does not exist", () => {
@@ -171,19 +230,58 @@ describe("getOrCreateCollectionDailySnapshot()", () => {
     })
 })
 
-// describe("getNftStandard()", () => {
-//     describe("When receipt is present", () => {
-//         test("updates the entity", () => {
+describe("getNftStandard()", () => {
+    describe("when ERC721 and ERC1155 do not support the collection interface ", () => {
+        test("it returns NFTStandards.UNKNOWN", () => {
+            const collectionID = DUMMY_ADDRESS
 
-//         })
-//     })
+            createMockedFunction(Address.fromString(collectionID), "supportsInterface", "supportsInterface(bytes4):(bool)")
+                .withArgs([ethereum.Value.fromFixedBytes(Bytes.fromHexString(ERC721_INTERFACE_IDENTIFIER))])
+                .returns([ethereum.Value.fromBoolean(false)])
 
-//     describe("When receipt is not present", () => {
-//         test("it creates a new entity", () => {
+            createMockedFunction(Address.fromString(collectionID), "supportsInterface", "supportsInterface(bytes4):(bool)")
+                .withArgs([ethereum.Value.fromFixedBytes(Bytes.fromHexString(ERC1155_INTERFACE_IDENTIFIER))])
+                .returns([ethereum.Value.fromBoolean(false)])
+            
+            const retVal = getNftStandard(collectionID)
+            assert.assertTrue(retVal == NFTStandards.UNKNOWN)
+        })
+    })
 
-//         })
-//     })
-// })
+    describe("when ERC721 does support the collection interface and ERC1155 does not ", () => {
+        test("it returns NFTStandards.ERC721", () => {
+            const collectionID = DUMMY_ADDRESS
+
+            createMockedFunction(Address.fromString(collectionID), "supportsInterface", "supportsInterface(bytes4):(bool)")
+                .withArgs([ethereum.Value.fromFixedBytes(Bytes.fromHexString(ERC721_INTERFACE_IDENTIFIER))])
+                .returns([ethereum.Value.fromBoolean(true)])
+
+            createMockedFunction(Address.fromString(collectionID), "supportsInterface", "supportsInterface(bytes4):(bool)")
+                .withArgs([ethereum.Value.fromFixedBytes(Bytes.fromHexString(ERC1155_INTERFACE_IDENTIFIER))])
+                .returns([ethereum.Value.fromBoolean(false)])
+            
+            const retVal = getNftStandard(collectionID)
+            assert.assertTrue(retVal == NFTStandards.ERC721)
+        })
+    })
+
+    describe("when ERC1155 does support the collection interface and ERC721 does not ", () => {
+        test("it returns NFTStandards.ERC1155", () => {
+            const collectionID = DUMMY_ADDRESS
+
+            createMockedFunction(Address.fromString(collectionID), "supportsInterface", "supportsInterface(bytes4):(bool)")
+                .withArgs([ethereum.Value.fromFixedBytes(Bytes.fromHexString(ERC721_INTERFACE_IDENTIFIER))])
+                .returns([ethereum.Value.fromBoolean(false)])
+
+            createMockedFunction(Address.fromString(collectionID), "supportsInterface", "supportsInterface(bytes4):(bool)")
+                .withArgs([ethereum.Value.fromFixedBytes(Bytes.fromHexString(ERC1155_INTERFACE_IDENTIFIER))])
+                .returns([ethereum.Value.fromBoolean(true)])
+            
+            const retVal = getNftStandard(collectionID)
+            assert.assertTrue(retVal == NFTStandards.ERC1155)
+        })
+    })
+})
 
 describe("getTransferDetails()", () => {
     describe("when offer is empty", () => {
