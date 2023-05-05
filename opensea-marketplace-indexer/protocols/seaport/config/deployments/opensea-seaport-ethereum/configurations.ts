@@ -1,4 +1,4 @@
-import { Network, PROTOCOL_SCHEMA_VERSION } from "../../../../../src/helper";
+import { Network, PROTOCOL_SCHEMA_VERSION } from "../../../../../src/utils";
 import {
   PROTOCOL_MARKETPLACE_ADDRESS,
   PROTOCOL_MARKETPLACE_NAME,
