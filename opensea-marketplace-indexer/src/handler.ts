@@ -37,7 +37,7 @@ import { NFTMetadata } from "../generated/Seaport/NFTMetadata";
 import { ERC165 } from "../generated/Seaport/ERC165";
 import { NetworkConfigs } from "../configurations/configure";
 
-class Sale {
+export class Sale {
   constructor(
     public readonly buyer: Address,
     public readonly seller: Address,
@@ -47,7 +47,7 @@ class Sale {
   ) {}
 }
 
-class NFTs {
+export class NFTs {
   constructor(
     public readonly collection: Address,
     public readonly standard: string,
@@ -56,11 +56,11 @@ class NFTs {
   ) {}
 }
 
-class Money {
+export class Money {
   constructor(public readonly amount: BigInt) {}
 }
 
-class Fees {
+export class Fees {
   constructor(
     public readonly protocolRevenue: BigInt,
     public readonly creatorRevenue: BigInt
@@ -300,7 +300,7 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
   marketplaceSnapshot.save();
 }
 
-function getOrCreateCollection(collectionID: string): Collection {
+export function getOrCreateCollection(collectionID: string): Collection {
   let collection = Collection.load(collectionID);
   if (!collection) {
     collection = new Collection(collectionID);
@@ -338,7 +338,7 @@ function getOrCreateCollection(collectionID: string): Collection {
   return collection;
 }
 
-function getOrCreateMarketplace(marketplaceID: string): Marketplace {
+export function getOrCreateMarketplace(marketplaceID: string): Marketplace {
   let marketplace = Marketplace.load(marketplaceID);
   if (!marketplace) {
     marketplace = new Marketplace(marketplaceID);
@@ -360,7 +360,7 @@ function getOrCreateMarketplace(marketplaceID: string): Marketplace {
   return marketplace;
 }
 
-function getOrCreateCollectionDailySnapshot(
+export function getOrCreateCollectionDailySnapshot(
   collection: string,
   timestamp: BigInt
 ): CollectionDailySnapshot {
@@ -388,7 +388,7 @@ function getOrCreateCollectionDailySnapshot(
   return snapshot;
 }
 
-function getOrCreateMarketplaceDailySnapshot(
+export function getOrCreateMarketplaceDailySnapshot(
   timestamp: BigInt
 ): MarketplaceDailySnapshot {
   const snapshotID = (timestamp.toI32() / SECONDS_PER_DAY).toString();
@@ -413,7 +413,7 @@ function getOrCreateMarketplaceDailySnapshot(
   return snapshot;
 }
 
-function getNftStandard(collectionID: string): string {
+export function getNftStandard(collectionID: string): string {
   const erc165 = ERC165.bind(Address.fromString(collectionID));
 
   const isERC721Result = erc165.try_supportsInterface(
@@ -444,7 +444,7 @@ function getNftStandard(collectionID: string): string {
 // There are two main cases in this function: 
 // 1) offerer is buyer since offer has money and consideration has NFTs
 // 2) offerer is seller since offer has NFTs and consideration has money
-function getTransferDetails(
+export function getTransferDetails(
   offerer: Address,
   recipient: Address,
   offer: Array<OrderFulfilledOfferStruct>,
@@ -461,7 +461,7 @@ function getTransferDetails(
   // Since we need to figure out who the buyer is and who the offerer is, let's
   // make a simplification and assume that you can only buy an NFT with ERC20 or NATIVE ETH
   // token, which is considered money. In reality, you can trade NFTs too, but that will make it tricky to know who the buyer and seller
-  // is. If the offer contains money, then the offerrer is a buyer.   
+  // is. If the offer contains money, then the offerer is a buyer.   
   if (offer.length == 1 && isMoney(offer[0].itemType)) { // if offer only contains money, then NFTs are in consideration
     const considerationNFTsResult = extractNFTsFromConsideration(consideration);
     if (!considerationNFTsResult) { // nft not found in consideration
@@ -499,7 +499,7 @@ function getTransferDetails(
 }
 
 // Sum all money amounts in consideration to get total money involved in transfer
-function extractMoneyFromConsideration(
+export function extractMoneyFromConsideration(
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): Money | null {
   let amount = BIGINT_ZERO;
@@ -515,19 +515,20 @@ function extractMoneyFromConsideration(
 }
 
 // this function extracts NFTs from the offer
-function extractNFTsFromOffer(
+export function extractNFTsFromOffer(
   offer: Array<OrderFulfilledOfferStruct>
 ): NFTs | null {
+  offer =  offer.filter((o) => isNFT(o.itemType))
   if (offer.filter((o) => isNFT(o.itemType)).length == 0) { // if none of the items in offer are NFTs
     return null;
   }
 
-  // Assume the first item of offer is token. Sonsideration can also have same token as another item in a different amount, 
-  // but we aren't handling the case where the consideration can have multiple tokens.
+  // Assume the first item of offer is token. Offer can also have same token as another item in a different amount, 
+  // but we aren't handling the case where the offer can have multiple tokens.
   const token = offer[0].token;
   const tokenType = offer[0].itemType;
-  const tokenIds: Array<BigInt> = [];
-  const amounts: Array<BigInt> = [];
+  let tokenIds: Array<BigInt> = [];
+  let amounts: Array<BigInt> = [];
 
   for (let i = 0; i < offer.length; i++) {
     const item = offer[i];
@@ -541,14 +542,14 @@ function extractNFTsFromOffer(
   let standard = NFTStandards.UNKNOWN;
   if (isERC721(tokenType)) {
     standard = NFTStandards.ERC721;
-  } if (isERC1155(tokenType)) {
+  } else if (isERC1155(tokenType)) {
     standard = NFTStandards.ERC1155;
   }
   return new NFTs(token, standard, tokenIds, amounts);
 }
 
 // this function extracts the NFTs from the consideration
-function extractNFTsFromConsideration(
+export function extractNFTsFromConsideration(
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): NFTs | null {
   const nftItems = consideration.filter((c) => isNFT(c.itemType));
@@ -570,6 +571,7 @@ function extractNFTsFromConsideration(
     tokenIds.push(item.identifier);
     amounts.push(item.amount);
   }
+
   let standard = NFTStandards.UNKNOWN;
   if (isERC721(tokenType)) {
     standard = NFTStandards.ERC721;
@@ -580,7 +582,7 @@ function extractNFTsFromConsideration(
   return new NFTs(token, standard, tokenIds, amounts);
 }
 
-function extractOpenSeaRoyaltyFees(
+export function extractOpenSeaRoyaltyFees(
   excludedRecipient: Address, // need this because royalty transfer is to the NFT creator
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): Fees {

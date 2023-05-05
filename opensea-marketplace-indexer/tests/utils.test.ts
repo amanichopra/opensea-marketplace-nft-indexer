@@ -16,8 +16,8 @@ describe("min()", () => {
 
     describe("When a is equal to b", () => {
         test("it returns a or b", () => {
-            const a = new BigDecimal(BigInt.fromU32(2))
-            const b = new BigDecimal(BigInt.fromU32(2))
+            const a = new BigDecimal(BigInt.fromU32(1))
+            const b = new BigDecimal(BigInt.fromU32(1))
             const retVal = min(a, b)
             assert.assertTrue(retVal.equals(a))
             assert.assertTrue(retVal.equals(b))
@@ -46,8 +46,8 @@ describe("max()", () => {
 
     describe("When a is equal to b", () => {
         test("it returns a or b", () => {
-            const a = new BigDecimal(BigInt.fromU32(2))
-            const b = new BigDecimal(BigInt.fromU32(2))
+            const a = new BigDecimal(BigInt.fromU32(1))
+            const b = new BigDecimal(BigInt.fromU32(1))
             const retVal = max(a, b)
             assert.assertTrue(retVal.equals(a))
             assert.assertTrue(retVal.equals(b))
