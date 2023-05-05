@@ -39,7 +39,7 @@ import { NetworkConfigs } from "../configurations/configure";
 
 // These are objects that serve as dataclasses. They are similar to the objects created by codegen, 
 // but they are not defined as entities in the graphql schema
-class Sale {
+export class Sale {
   constructor(
     public readonly buyer: Address,
     public readonly seller: Address,
@@ -601,20 +601,15 @@ export function extractOpenSeaRoyaltyFees(
   let openSeaFees = BIGINT_ZERO;
   if (openSeaFeeItems.length != 0) { // protocol fee not found in consideration
     openSeaFees = openSeaFeeItems[0].amount;
-  } 
+  }
 
-  const royaltyFeeItems: Array<OrderFulfilledConsiderationStruct> = []; // can't use filter method above since excluded recipient isn't an attribute of a consideration
+  let royalty = BIGINT_ZERO
   for (let i = 0; i < consideration.length; i++) {
     if (!isOpenSeaFeeAccount(consideration[i].recipient) && consideration[i].recipient != excludedRecipient) {
-      royaltyFeeItems.push(consideration[i]);
+      royalty = consideration[i].amount
+      break
     }
-  }  
-
-  // royalty is 0 if we can't find it in consideration
-  let royalty = BIGINT_ZERO;
-  if (royaltyFeeItems.length != 0) {
-    royalty = royaltyFeeItems[0].amount;
-  } 
+  }
 
   return new Fees(openSeaFees, royalty);
 }
