@@ -1,7 +1,7 @@
 import { Address, BigDecimal, BigInt, Bytes, ethereum, log } from "@graphprotocol/graph-ts";
 import { describe, test, newMockEvent, clearStore, assert, beforeAll, beforeEach, afterAll, newTypedMockEvent, createMockedFunction } from "matchstick-as/assembly/index"
 
-import { handleOrderFulfilled, getOrCreateCollection, getOrCreateMarketplace, getOrCreateCollectionDailySnapshot, getOrCreateMarketplaceDailySnapshot, getNftStandard, getTransferDetails, extractMoneyFromConsideration, extractNFTsFromOffer, extractNFTsFromConsideration, extractOpenSeaRoyaltyFees, Money, NFTs } from "../src/handler"
+import { handleOrderFulfilled, getCollection, getMarketplace, getOrCreateCollectionDailySnapshot, getOrCreateMarketplaceDailySnapshot, getNftStandard, getTransferDetails, extractMoneyFromConsideration, extractNFTsFromOffer, extractNFTsFromConsideration, extractOpenSeaRoyaltyFees, Money, NFTs } from "../src/handler"
 import { OrderFulfilledConsiderationStruct, OrderFulfilledOfferStruct } from "../generated/Seaport/Seaport";
 import { NFTStandards, SeaportItemType } from "../src/utils";
 
@@ -305,7 +305,7 @@ describe("extractNFTsFromOffer()", () => {
             const retVal = extractNFTsFromOffer(offer)
             const expected = new NFTs(Address.fromString(DUMMY_ADDRESS), NFTStandards.ERC721, [BigInt.fromU32(1), BigInt.fromU32(1)], [BigInt.fromU32(10), BigInt.fromU32(10)])
 
-            assert.assertTrue(retVal!.collection == expected.collection)
+            assert.assertTrue(retVal!.tokenAddress == expected.tokenAddress)
             assert.assertTrue(retVal!.standard == expected.standard)
             
             assert.assertTrue(retVal!.tokenIds.length == 2)
@@ -342,7 +342,7 @@ describe("extractNFTsFromOffer()", () => {
             const retVal = extractNFTsFromOffer(offer)
             const expected = new NFTs(Address.fromString(DUMMY_ADDRESS), NFTStandards.ERC1155, [BigInt.fromU32(1), BigInt.fromU32(1)], [BigInt.fromU32(10), BigInt.fromU32(10)])
 
-            assert.assertTrue(retVal!.collection == expected.collection)
+            assert.assertTrue(retVal!.tokenAddress == expected.tokenAddress)
             assert.assertTrue(retVal!.standard == expected.standard)
             
             assert.assertTrue(retVal!.tokenIds.length == 2)
@@ -430,7 +430,7 @@ describe("extractNFTsFromConsideration()", () => {
             const retVal = extractNFTsFromConsideration(consideration)
             const expected = new NFTs(Address.fromString(DUMMY_ADDRESS), NFTStandards.ERC721, [BigInt.fromU32(1), BigInt.fromU32(1)], [BigInt.fromU32(10), BigInt.fromU32(10)])
 
-            assert.assertTrue(retVal!.collection == expected.collection)
+            assert.assertTrue(retVal!.tokenAddress == expected.tokenAddress)
             assert.assertTrue(retVal!.standard == expected.standard)
             
             assert.assertTrue(retVal!.tokenIds.length == 2)
@@ -467,7 +467,7 @@ describe("extractNFTsFromConsideration()", () => {
             const retVal = extractNFTsFromConsideration(consideration)
             const expected = new NFTs(Address.fromString(DUMMY_ADDRESS), NFTStandards.ERC1155, [BigInt.fromU32(1), BigInt.fromU32(1)], [BigInt.fromU32(10), BigInt.fromU32(10)])
 
-            assert.assertTrue(retVal!.collection == expected.collection)
+            assert.assertTrue(retVal!.tokenAddress == expected.tokenAddress)
             assert.assertTrue(retVal!.standard == expected.standard)
             
             assert.assertTrue(retVal!.tokenIds.length == 2)
