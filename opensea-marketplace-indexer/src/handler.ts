@@ -39,7 +39,7 @@ import { NetworkConfigs } from "../configurations/configure";
 
 // These are objects that serve as dataclasses. They are similar to the objects created by codegen, 
 // but they are not defined as entities in the graphql schema
-class Sale {
+export class Sale {
   constructor(
     public readonly buyer: Address,
     public readonly seller: Address,
@@ -49,7 +49,7 @@ class Sale {
   ) {}
 }
 
-class NFTs {
+export class NFTs {
   constructor(
     public readonly tokenAddress: Address,
     public readonly standard: string,
@@ -58,11 +58,11 @@ class NFTs {
   ) {}
 }
 
-class Money {
+export class Money {
   constructor(public readonly amount: BigInt) {}
 }
 
-class Fees {
+export class Fees {
   constructor(
     public readonly protocolRevenue: BigInt,
     public readonly creatorRevenue: BigInt
@@ -302,7 +302,7 @@ export function handleOrderFulfilled(event: OrderFulfilled): void {
   marketplaceSnapshot.save();
 }
 
-function getCollection(tokenAddress: string): Collection {
+export function getCollection(tokenAddress: string): Collection {
   let collection = Collection.load(tokenAddress);
 
   // if the collection hasn't been saved before, we will need to instantiate it and save it for the first time in the event handler.
@@ -347,7 +347,7 @@ function getCollection(tokenAddress: string): Collection {
   return collection;
 }
 
-function getMarketplace(marketplaceID: string): Marketplace {
+export function getMarketplace(marketplaceID: string): Marketplace {
   let marketplace = Marketplace.load(marketplaceID);
   if (!marketplace) {
     marketplace = new Marketplace(marketplaceID);
@@ -369,7 +369,7 @@ function getMarketplace(marketplaceID: string): Marketplace {
   return marketplace;
 }
 
-function getOrCreateCollectionDailySnapshot(
+export function getOrCreateCollectionDailySnapshot(
   collection: string,
   timestamp: BigInt
 ): CollectionDailySnapshot {
@@ -397,7 +397,7 @@ function getOrCreateCollectionDailySnapshot(
   return snapshot;
 }
 
-function getOrCreateMarketplaceDailySnapshot(
+export function getOrCreateMarketplaceDailySnapshot(
   timestamp: BigInt
 ): MarketplaceDailySnapshot {
   const snapshotID = (timestamp.toI32() / SECONDS_PER_DAY).toString();
@@ -422,7 +422,7 @@ function getOrCreateMarketplaceDailySnapshot(
   return snapshot;
 }
 
-function getNftStandard(collectionID: string): string {
+export function getNftStandard(collectionID: string): string {
   const erc165 = ERC165.bind(Address.fromString(collectionID));
 
   const isERC721Result = erc165.try_supportsInterface(
@@ -453,7 +453,7 @@ function getNftStandard(collectionID: string): string {
 // There are two main cases in this function: 
 // 1) offerer is buyer since offer has money and consideration has NFTs
 // 2) offerer is seller since offer has NFTs and consideration has money
-function getTransferDetails(
+export function getTransferDetails(
   offerer: Address,
   recipient: Address,
   offer: Array<OrderFulfilledOfferStruct>,
@@ -470,7 +470,7 @@ function getTransferDetails(
   // Since we need to figure out who the buyer is and who the offerer is, let's
   // make a simplification and assume that you can only buy an NFT with ERC20 or NATIVE ETH
   // token, which is considered money. In reality, you can trade NFTs too, but that will make it tricky to know who the buyer and seller
-  // is. If the offer contains money, then the offerrer is a buyer.   
+  // is. If the offer contains money, then the offerer is a buyer.   
   if (offer.length == 1 && isMoney(offer[0].itemType)) { // if offer only contains money, then NFTs are in consideration
     const considerationNFTsResult = extractNFTsFromConsideration(consideration);
     if (!considerationNFTsResult) { // nft not found in consideration
@@ -508,7 +508,7 @@ function getTransferDetails(
 }
 
 // Sum all money amounts in consideration to get total money involved in transfer
-function extractMoneyFromConsideration(
+export function extractMoneyFromConsideration(
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): Money | null {
   let amount = BIGINT_ZERO;
@@ -524,9 +524,10 @@ function extractMoneyFromConsideration(
 }
 
 // this function extracts NFTs from the offer
-function extractNFTsFromOffer(
+export function extractNFTsFromOffer(
   offer: Array<OrderFulfilledOfferStruct>
 ): NFTs | null {
+  offer =  offer.filter((o) => isNFT(o.itemType))
   if (offer.filter((o) => isNFT(o.itemType)).length == 0) { // if none of the items in offer are NFTs
     return null;
   }
@@ -535,8 +536,8 @@ function extractNFTsFromOffer(
   // but we aren't handling the case where the consideration can have multiple tokens.
   const token_address = offer[0].token;
   const tokenType = offer[0].itemType;
-  const tokenIds: Array<BigInt> = [];
-  const amounts: Array<BigInt> = [];
+  let tokenIds: Array<BigInt> = [];
+  let amounts: Array<BigInt> = [];
 
   for (let i = 0; i < offer.length; i++) {
     const item = offer[i];
@@ -550,14 +551,14 @@ function extractNFTsFromOffer(
   let standard = NFTStandards.UNKNOWN;
   if (isERC721(tokenType)) {
     standard = NFTStandards.ERC721;
-  } if (isERC1155(tokenType)) {
+  } else if (isERC1155(tokenType)) {
     standard = NFTStandards.ERC1155;
   }
   return new NFTs(token_address, standard, tokenIds, amounts);
 }
 
 // this function extracts the NFTs from the consideration
-function extractNFTsFromConsideration(
+export function extractNFTsFromConsideration(
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): NFTs | null {
   const nftItems = consideration.filter((c) => isNFT(c.itemType));
@@ -579,6 +580,7 @@ function extractNFTsFromConsideration(
     tokenIds.push(item.identifier);
     amounts.push(item.amount);
   }
+
   let standard = NFTStandards.UNKNOWN;
   if (isERC721(tokenType)) {
     standard = NFTStandards.ERC721;
@@ -589,7 +591,7 @@ function extractNFTsFromConsideration(
   return new NFTs(token_address, standard, tokenIds, amounts);
 }
 
-function extractOpenSeaRoyaltyFees(
+export function extractOpenSeaRoyaltyFees(
   excludedRecipient: Address, // need this because royalty transfer is to the NFT creator
   consideration: Array<OrderFulfilledConsiderationStruct>
 ): Fees {
@@ -599,20 +601,15 @@ function extractOpenSeaRoyaltyFees(
   let openSeaFees = BIGINT_ZERO;
   if (openSeaFeeItems.length != 0) { // protocol fee not found in consideration
     openSeaFees = openSeaFeeItems[0].amount;
-  } 
+  }
 
-  const royaltyFeeItems: Array<OrderFulfilledConsiderationStruct> = []; // can't use filter method above since excluded recipient isn't an attribute of a consideration
+  let royalty = BIGINT_ZERO
   for (let i = 0; i < consideration.length; i++) {
     if (!isOpenSeaFeeAccount(consideration[i].recipient) && consideration[i].recipient != excludedRecipient) {
-      royaltyFeeItems.push(consideration[i]);
+      royalty = consideration[i].amount
+      break
     }
-  }  
-
-  // royalty is 0 if we can't find it in consideration
-  let royalty = BIGINT_ZERO;
-  if (royaltyFeeItems.length != 0) {
-    royalty = royaltyFeeItems[0].amount;
-  } 
+  }
 
   return new Fees(openSeaFees, royalty);
 }

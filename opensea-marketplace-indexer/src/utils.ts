@@ -1,4 +1,4 @@
-import { Address, BigDecimal, BigInt, ethereum } from "@graphprotocol/graph-ts";
+import { Address, BigDecimal, BigInt, ethereum, log } from "@graphprotocol/graph-ts";
 
 // method signatures are instantitiated here on etherscan: https://etherscan.io/address/0x00000000006c3852cbef3e08e8df289169ede581#writeContract
 export namespace MethodSignatures {
@@ -66,6 +66,15 @@ export const SECONDS_PER_DAY = 24 * 60 * 60;
 export const ERC721_INTERFACE_IDENTIFIER = "0x80ac58cd"; // defined here https://eips.ethereum.org/EIPS/eip-721
 export const ERC1155_INTERFACE_IDENTIFIER = "0xd9b67a26"; // defined here https://eips.ethereum.org/EIPS/eip-1155
 
+// This is found https://etherscan.io/address/0x8de9c5a032463c561423387a9648c5c7bcc5bc90
+export const OPENSEA_FEES_ACCOUNT = Address.fromString(
+  "0x8de9c5a032463c561423387a9648c5c7bcc5bc90"
+);
+// This can be found https://github.com/web3w/seaport-js/blob/399fa568c04749fd8f96829fa7a6b73d1e440458/src/contracts/index.ts#L30
+export const OPENSEA_ETHEREUM_FEE_COLLECTOR = Address.fromString(
+  "0x0000a26b00c1F0DF003000390027140000fAa719"
+);
+
 export function min(a: BigDecimal, b: BigDecimal): BigDecimal {
   return a.lt(b) ? a : b;
 }
@@ -107,14 +116,6 @@ export function isERC1155(itemType: i32): boolean {
 }
 
 export function isOpenSeaFeeAccount(address: Address): boolean {
-  // This is found https://etherscan.io/address/0x8de9c5a032463c561423387a9648c5c7bcc5bc90
-  const OPENSEA_FEES_ACCOUNT = Address.fromString(
-    "0x8de9c5a032463c561423387a9648c5c7bcc5bc90"
-  );
-  // This can be found https://github.com/web3w/seaport-js/blob/399fa568c04749fd8f96829fa7a6b73d1e440458/src/contracts/index.ts#L30
-  const OPENSEA_ETHEREUM_FEE_COLLECTOR = Address.fromString(
-    "0x0000a26b00c1F0DF003000390027140000fAa719"
-  );
   return (
     address == OPENSEA_FEES_ACCOUNT ||
     address == OPENSEA_ETHEREUM_FEE_COLLECTOR
@@ -151,7 +152,7 @@ export function orderFulfillmentMethod(event:ethereum.Event):string | null {
   }
 
   if(methodSignature == MethodSignatures.MATCH_ADVANCED_ORDERS) {
-    fulfillmentType === OrderFulfillmentMethods.MATCH_ADVANCED_ORDERS
+    fulfillmentType = OrderFulfillmentMethods.MATCH_ADVANCED_ORDERS
   }
 
   return fulfillmentType;
