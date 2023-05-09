@@ -32,6 +32,9 @@ The Seaport smart contract emits several [events/errors](https://docs.opensea.io
 `OrderFulfilled` is the main event we need to listen for in the subgraph (as the `./opensea-marketplace-indexer/subgraph.yaml` shows) since it represents the successful transfer of an NFT. The main event handler we implement is for `OrderFulfilled` (code in `./opensea-marketplace-indexer/src/mapping.ts`). The key to understanding an order is that is contains an offer and consideration. The offer and considerations are simply lists of NFTs or money. If the offer only has one item which is money, that implies the consideration must contain the NFTs. This represents the offerrer being the buyer and the recipient being the seller. On the flip side, if the offer contains NFTs, then the consideration must contain money, which implies the offerrer is the seller and the recipient is the buyer. This idea was inspired by the subgraph developed by Messari shown [here](https://thegraph.com/explorer/subgraphs/G1F2huam7aLSd2JYjxnofXmqkQjT5K2fRjdfapwiik9c?view=Indexers&chain=mainnet). Because the blockchain space is decentralized and open-source, we leveraged the code used by Messari and made sure to understand the logic of the event handlers by producing detailed comments, refractored the code, and deployed our own subgraph.
 
 ## Example Queries
+Query Explanation:
+This is daily summary of activity on opensea ordered by timestamp descendingly. Timestamp is unix time. Collection count is num nfts. Trade count is # of tx. Marketplace revenue is total commission opensea gets. Creator revenue is royalty for creator of nft. cumulative unique traders is num unique traders.. All described in schema.
+
 Query:
 ```
 query MyQuery {
@@ -136,6 +139,9 @@ Response:
 }
 ```
 
+Query Explanation:
+This is top 5 nfts by trade volume. We can see the names, symbols, royalty fee (% of money creator gets/tx), and the cum amount of eth traded for nft.
+
 Query:
 ```
 query MyQuery {
@@ -192,6 +198,9 @@ Response:
   }
 }
 ```
+
+Query Explanation:
+This is most recent tx of BAYC token (bored apes). We can see tx hash, amount of tokens transferred, seller, buyer, and price. Can type tx hash in etherscan like for the first tx in the response: https://etherscan.io/tx/0xe89d4e94994f91ccb483db13281cbca69a4beb584a29db5db2d36d498bdc9adc
 
 Query:
 ```
