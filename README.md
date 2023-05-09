@@ -30,3 +30,255 @@ The Seaport smart contract emits several [events/errors](https://docs.opensea.io
 - and more...
 
 `OrderFulfilled` is the main event we need to listen for in the subgraph (as the `./opensea-marketplace-indexer/subgraph.yaml` shows) since it represents the successful transfer of an NFT. The main event handler we implement is for `OrderFulfilled` (code in `./opensea-marketplace-indexer/src/mapping.ts`). The key to understanding an order is that is contains an offer and consideration. The offer and considerations are simply lists of NFTs or money. If the offer only has one item which is money, that implies the consideration must contain the NFTs. This represents the offerrer being the buyer and the recipient being the seller. On the flip side, if the offer contains NFTs, then the consideration must contain money, which implies the offerrer is the seller and the recipient is the buyer. This idea was inspired by the subgraph developed by Messari shown [here](https://thegraph.com/explorer/subgraphs/G1F2huam7aLSd2JYjxnofXmqkQjT5K2fRjdfapwiik9c?view=Indexers&chain=mainnet). Because the blockchain space is decentralized and open-source, we leveraged the code used by Messari and made sure to understand the logic of the event handlers by producing detailed comments, refractored the code, and deployed our own subgraph.
+
+## Example Queries
+Query:
+```
+query MyQuery {
+  marketplaceDailySnapshots(orderBy: timestamp, orderDirection: desc, first: 10) {
+    timestamp
+    collectionCount
+    tradeCount
+    marketplaceRevenueETH
+    creatorRevenueETH
+    cumulativeUniqueTraders
+  }
+}
+```
+
+Response:
+```
+{
+  "data": {
+    "marketplaceDailySnapshots": [
+      {
+        "timestamp": "1667042075",
+        "collectionCount": 23180,
+        "tradeCount": 7824899,
+        "marketplaceRevenueETH": "43800.834380183527292806",
+        "creatorRevenueETH": "74492.415669454930158566",
+        "cumulativeUniqueTraders": 949387
+      },
+      {
+        "timestamp": "1667001599",
+        "collectionCount": 23150,
+        "tradeCount": 7806473,
+        "marketplaceRevenueETH": "43738.176787282584821902",
+        "creatorRevenueETH": "74387.893348037986406323",
+        "cumulativeUniqueTraders": 947606
+      },
+      {
+        "timestamp": "1666915199",
+        "collectionCount": 23043,
+        "tradeCount": 7763874,
+        "marketplaceRevenueETH": "43532.261787868540258728",
+        "creatorRevenueETH": "73954.582927599823814701",
+        "cumulativeUniqueTraders": 943562
+      },
+      {
+        "timestamp": "1666828787",
+        "collectionCount": 22938,
+        "tradeCount": 7717515,
+        "marketplaceRevenueETH": "43343.602745388577815108",
+        "creatorRevenueETH": "73611.622131133381652078",
+        "cumulativeUniqueTraders": 939010
+      },
+      {
+        "timestamp": "1666742399",
+        "collectionCount": 22827,
+        "tradeCount": 7675578,
+        "marketplaceRevenueETH": "43146.273724946298454552",
+        "creatorRevenueETH": "72675.597484367886446241",
+        "cumulativeUniqueTraders": 935289
+      },
+      {
+        "timestamp": "1666655999",
+        "collectionCount": 22721,
+        "tradeCount": 7637138,
+        "marketplaceRevenueETH": "42980.533718782939901069",
+        "creatorRevenueETH": "72413.134730755381746461",
+        "cumulativeUniqueTraders": 931932
+      },
+      {
+        "timestamp": "1666569599",
+        "collectionCount": 22615,
+        "tradeCount": 7596849,
+        "marketplaceRevenueETH": "42805.048043532295979693",
+        "creatorRevenueETH": "71980.953455698128578679",
+        "cumulativeUniqueTraders": 928152
+      },
+      {
+        "timestamp": "1666483199",
+        "collectionCount": 22528,
+        "tradeCount": 7551836,
+        "marketplaceRevenueETH": "42641.68988078205175549",
+        "creatorRevenueETH": "71724.313081246765697336",
+        "cumulativeUniqueTraders": 924519
+      },
+      {
+        "timestamp": "1666396799",
+        "collectionCount": 22433,
+        "tradeCount": 7505142,
+        "marketplaceRevenueETH": "42483.690547075097825136",
+        "creatorRevenueETH": "71467.753918575482313591",
+        "cumulativeUniqueTraders": 920865
+      },
+      {
+        "timestamp": "1666310399",
+        "collectionCount": 22329,
+        "tradeCount": 7459502,
+        "marketplaceRevenueETH": "42132.127187168000010762",
+        "creatorRevenueETH": "71106.595038667452671088",
+        "cumulativeUniqueTraders": 916970
+      }
+    ]
+  }
+}
+```
+
+Query:
+```
+query MyQuery {
+  collections(
+    orderBy: tradeCount
+    orderDirection: desc
+    first: 5
+    where: {symbol_not: "null"}
+  ) {
+    name
+    symbol
+    royaltyFee
+    cumulativeTradeVolumeETH
+  }
+}
+```
+
+Response:
+```
+{
+  "data": {
+    "collections": [
+      {
+        "name": "parallel",
+        "symbol": "LL",
+        "royaltyFee": "10",
+        "cumulativeTradeVolumeETH": "4809.201184202214121554"
+      },
+      {
+        "name": "Genuine Undead",
+        "symbol": "GU",
+        "royaltyFee": "0.0000000000000002512562814070351758793969849246231",
+        "cumulativeTradeVolumeETH": "6772.705527109701636061"
+      },
+      {
+        "name": "OpenSea Shared Storefront",
+        "symbol": "OPENSTORE",
+        "royaltyFee": "10",
+        "cumulativeTradeVolumeETH": "35433.344589007421147626"
+      },
+      {
+        "name": "Moonrunners",
+        "symbol": "MOONR",
+        "royaltyFee": "0.00000000000000196078431372549019607843137254902",
+        "cumulativeTradeVolumeETH": "8792.995721863000307366"
+      },
+      {
+        "name": "y00ts Yacht Club",
+        "symbol": "YYC",
+        "royaltyFee": "5",
+        "cumulativeTradeVolumeETH": "1652.14967773093550554"
+      }
+    ]
+  }
+}
+```
+
+Query:
+```
+query MyQuery {
+  collections(
+    orderBy: totalRevenueETH
+    orderDirection: desc
+    first: 1
+    where: {symbol: "BAYC"}
+  ) {
+    symbol
+    cumulativeTradeVolumeETH
+    nftStandard
+    trades(first: 5, orderBy: timestamp, orderDirection: desc) {
+      seller
+      buyer
+      timestamp
+      transactionHash
+      amount
+      priceETH
+    }
+  }
+}
+```
+
+Response:
+```
+{
+  "data": {
+    "collections": [
+      {
+        "symbol": "BAYC",
+        "cumulativeTradeVolumeETH": "149243.115016887658608855",
+        "nftStandard": "ERC721",
+        "trades": [
+          {
+            "seller": "0x79984b0a2ac682c5d2257b56215de45b965b9216",
+            "buyer": "0xaeaee46b9ad8e1e213cf6d73b7b31ab19a2bb9be",
+            "timestamp": "1667070695",
+            "transactionHash": "0xe89d4e94994f91ccb483db13281cbca69a4beb584a29db5db2d36d498bdc9adc",
+            "amount": "1",
+            "priceETH": "67.3367"
+          },
+          {
+            "seller": "0x500e91aca8cfe3e541aa47fafcd85a65bcb860f8",
+            "buyer": "0x5af278b1c423a320425cd46f3f6e9c08c814bf86",
+            "timestamp": "1667013887",
+            "transactionHash": "0xf64ee7195e301ab055243b9c9dfc6fa3172c0b727edb274e2cf64497a7cd0488",
+            "amount": "1",
+            "priceETH": "74"
+          },
+          {
+            "seller": "0xc29af06142138f893e3f1c1d11aa98c3313b8c1f",
+            "buyer": "0x5620dac57a8a91b51932943bb53ffef6fd68b16c",
+            "timestamp": "1666939859",
+            "transactionHash": "0xbe9991d21acdfefaf21839e2360dc335d051020bced053db8cb6d7dfa3b89e1e",
+            "amount": "1",
+            "priceETH": "75"
+          },
+          {
+            "seller": "0xd00c66f16e00f990c85bbd76b3118878b904bef7",
+            "buyer": "0x5620dac57a8a91b51932943bb53ffef6fd68b16c",
+            "timestamp": "1666939859",
+            "transactionHash": "0xbe9991d21acdfefaf21839e2360dc335d051020bced053db8cb6d7dfa3b89e1e",
+            "amount": "1",
+            "priceETH": "74.98"
+          },
+          {
+            "seller": "0x799604c8fd473dd9c708bc2de58fb7edacdc496e",
+            "buyer": "0x5620dac57a8a91b51932943bb53ffef6fd68b16c",
+            "timestamp": "1666939859",
+            "transactionHash": "0xbe9991d21acdfefaf21839e2360dc335d051020bced053db8cb6d7dfa3b89e1e",
+            "amount": "1",
+            "priceETH": "73.8"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Unit Tests
+We implemented 84 tests that provide full coverage on 19 out of the 20 functions we implemented with the last function being the top-level function that calls the other subroutines that make up the 19 functions with coverage.
+
+Steps to run the tests:
+1. Navigate to `opensea-marketplace-indexer` subfolder in the terminal
+2. Run `graph test` from the command line
+
+<img width="1172" alt="Screen Shot 2023-05-08 at 8 12 43 PM" src="https://user-images.githubusercontent.com/3409279/236969165-3617b36f-9c41-4271-8d9d-96421a5d7dbe.png">
